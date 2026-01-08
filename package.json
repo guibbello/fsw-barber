@@ -27,6 +27,7 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.23",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "git-commit-msg-linter": "^5.0.8",
