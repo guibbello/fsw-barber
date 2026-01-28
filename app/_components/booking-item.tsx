@@ -1,3 +1,5 @@
+"use client";
+
 import { Prisma } from "@prisma/client";
 import { Avatar, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
@@ -7,12 +9,28 @@ import { ptBR } from "date-fns/locale";
 import {
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "./ui/sheet";
 import Image from "next/image";
 import PhoneItem from "./phone-item";
+import { Button } from "./ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./alert-dialog";
+import { deleteBooking } from "@/_actions/delete-booking";
+import { toast } from "sonner";
+import { useState } from "react";
 
 interface BookingItemProps {
   booking: Prisma.BookingGetPayload<{
@@ -24,12 +42,33 @@ interface BookingItemProps {
 
 // TO DO: Receber agendamento como PROP
 const BookingItem = ({ booking }: BookingItemProps) => {
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const {
     service: { barbershop },
   } = booking;
+
   const isConfirmed = isFuture(booking.date);
+
+  const handleCancelBooking = async () => {
+    try {
+      setIsLoading(true);
+
+      await deleteBooking(booking.id);
+
+      setIsSheetOpen(false); // 👈 fecha o Sheet manualmente
+      toast.success("Reserva cancelada com sucesso!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao cancelar a reserva. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <Sheet>
+    <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
       <SheetTrigger className="w-full">
         <Card className="min-w-[90%]">
           <CardContent className="flex justify-between p-0">
@@ -41,15 +80,17 @@ const BookingItem = ({ booking }: BookingItemProps) => {
               >
                 {isConfirmed ? "Confirmado" : "Finalizado"}
               </Badge>
+
               <h3 className="font-semibold">{booking.service.name}</h3>
 
               <div className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
-                  <AvatarImage src={booking.service.barbershop.imageUrl} />
+                  <AvatarImage src={barbershop.imageUrl} />
                 </Avatar>
-                <p className="text-sm">{booking.service.barbershop.name}</p>
+                <p className="text-sm">{barbershop.name}</p>
               </div>
             </div>
+
             {/* Direita */}
             <div className="flex flex-col items-center justify-center px-5 border-l-2 border-solid">
               <p className="text-sm capitalize">
@@ -65,14 +106,16 @@ const BookingItem = ({ booking }: BookingItemProps) => {
           </CardContent>
         </Card>
       </SheetTrigger>
+
       <SheetContent className="w-[90%]">
         <SheetHeader>
           <SheetTitle className="text-left">Informações da Reserva</SheetTitle>
         </SheetHeader>
 
+        {/* Mapa */}
         <div className="relative flex h-[180px] w-full items-end mt-6">
           <Image
-            alt={"Mapa da barbearia ${booking.service.barbershop.name}"}
+            alt={`Mapa da barbearia ${barbershop.name}`}
             src="/map.png"
             fill
             className="object-cover rounded-xl"
@@ -90,6 +133,8 @@ const BookingItem = ({ booking }: BookingItemProps) => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Infos */}
         <div className="mt-6">
           <Badge
             className="w-fit"
@@ -101,7 +146,7 @@ const BookingItem = ({ booking }: BookingItemProps) => {
           <Card className="mt-3 mb-6">
             <CardContent className="p-3 space-y-3">
               <div className="flex justify-between items-center">
-                <h2 className="font-bold ">{booking.service.name}</h2>
+                <h2 className="font-bold">{booking.service.name}</h2>
                 <p className="text-sm font-bold">
                   {Intl.NumberFormat("pt-BR", {
                     style: "currency",
@@ -113,7 +158,7 @@ const BookingItem = ({ booking }: BookingItemProps) => {
               <div className="flex justify-between items-center">
                 <h2 className="text-sm text-gray-400">Data</h2>
                 <p className="text-sm">
-                  {booking.date?.toLocaleDateString("pt-BR")}
+                  {booking.date.toLocaleDateString("pt-BR")}
                 </p>
               </div>
 
@@ -137,6 +182,53 @@ const BookingItem = ({ booking }: BookingItemProps) => {
             ))}
           </div>
         </div>
+
+        {/* Footer */}
+        <SheetFooter className="mt-6">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setIsSheetOpen(false)}
+            >
+              Voltar
+            </Button>
+
+            {isConfirmed && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full">
+                    Cancelar Reserva
+                  </Button>
+                </AlertDialogTrigger>
+
+                <AlertDialogContent className="w-[90%]">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancelar reserva</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Você tem certeza que quer cancelar sua reserva?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Voltar</AlertDialogCancel>
+
+                    <AlertDialogAction asChild>
+                      <Button
+                        className="w-full"
+                        variant="destructive"
+                        onClick={handleCancelBooking}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "Cancelando..." : "Confirmar"}
+                      </Button>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );
